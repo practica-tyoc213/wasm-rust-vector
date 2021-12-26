@@ -4,9 +4,15 @@ use std::ops::Index;
 use js_sys::Array;
 use js_sys::Map;
 use web_sys::CanvasRenderingContext2d;
+use web_sys::Request;
+use web_sys::RequestInit;
+use web_sys::Response;
 use std::f64;
+use wasm_bindgen_futures::JsFuture;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
+use futures::executor::block_on;
+
 
 extern crate web_sys;
 
@@ -104,9 +110,39 @@ impl Universe {
         map
     }
 
+    async fn load_dots_for_user(&self, id: i32) -> Result<JsValue, JsValue>{
+        let mut opts = RequestInit::new();
+        opts.method("GET");
+
+        let url = format!("http://localhost:8000/users/{}", id);
+
+        let request = Request::new_with_str_and_init(&url, &opts)?;
+
+        request
+            .headers()
+            .set("Accept", "application/vnd.github.v3+json")?;
+
+        let window = web_sys::window().unwrap();
+        let resp_value = JsFuture::from(window.fetch_with_request(&request)).await?;
+
+        // `resp_value` is a `Response` object.
+        assert!(resp_value.is_instance_of::<Response>());
+        let resp: Response = resp_value.dyn_into().unwrap();
+
+        // Convert this other `Promise` into a rust `Future`.
+        let json = JsFuture::from(resp.json()?).await?;
+        log!("{:?}", json);
+        Ok(json)
+    }
+
     pub fn new() -> Universe {
         let width = 64;
         let height = 64;
+
+        
+        let mouse_down = false;
+        let grabing = None;
+        // let dots:Vec<ADot> = vec!();
 
         let dots = vec![
             ADot{id: 2, x: 20, y: 20},
@@ -115,17 +151,23 @@ impl Universe {
             ADot{id: 5, x: 50, y: 50}
         ];
 
-        let mouse_down = false;
-        let grabing = None;
-
         utils::set_panic_hook();
-        Universe {
+        let u = Universe {
             width,
             height,
             dots,
             mouse_down,
             grabing
-        }
+        };
+        // let r = block_on(u.load_dots_for_user(1));
+        // match r {
+        //     Ok(result) => {
+        //         log!("{:?}", result);
+        //         u
+        //     },
+        //     _ => u
+        // }
+        u
     }
 
     pub fn move_mouse(&mut self, e_x: u32, e_y: u32) {
@@ -206,3 +248,4 @@ impl Universe {
         context.stroke()
     }
 }
+
