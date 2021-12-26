@@ -3,6 +3,10 @@ mod utils;
 use std::ops::Index;
 use js_sys::Array;
 use js_sys::Map;
+use web_sys::CanvasRenderingContext2d;
+use std::f64;
+use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsCast;
 
 extern crate web_sys;
 
@@ -42,9 +46,9 @@ pub struct ADot {
 impl ADot {
     pub fn is_near(&self, x: u32, y: u32) -> bool {
         
-        let neighboor = 3;
+        let neighboor = 7;
         if (self.x - x as i32).abs() < neighboor || (self.y - y as i32).abs() < neighboor {
-            log!("is near <{}, {}>? ?? ({}, {})", self.x, self.y, x, y);
+            // log!("is near <{}, {}>? ?? ({}, {})", self.x, self.y, x, y);
             true
         } else {
             false
@@ -158,10 +162,47 @@ impl Universe {
     }
 
     pub fn tick(&mut self) {
-
+        let canvas = self.get_drawing_context();
+        self.clear_bg(&canvas);
+        self.draw_dots(&canvas);
     }
 
     pub fn dot_count(&self) -> usize {
         self.dots.len()
+    }
+
+    pub fn get_drawing_context(&self) -> CanvasRenderingContext2d {
+        let document = web_sys::window().unwrap().document().unwrap();
+        let canvas = document.get_element_by_id("game-of-life-canvas").unwrap();
+        let canvas: web_sys::HtmlCanvasElement = canvas
+            .dyn_into::<web_sys::HtmlCanvasElement>()
+            .map_err(|_| ())
+            .unwrap();
+    
+        let context = canvas
+            .get_context("2d")
+            .unwrap()
+            .unwrap()
+            .dyn_into::<web_sys::CanvasRenderingContext2d>()
+            .unwrap();
+        context
+    }
+
+    pub fn clear_bg(&self, _ctx: &CanvasRenderingContext2d){
+        let ctx = self.get_drawing_context();
+        ctx
+        .set_fill_style(&"rgb(238, 238, 238)".into());
+        ctx.fill_rect(0.0, 0.0, 16000.0, 16000.0);
+    }
+
+    pub fn draw_dots(&self, context: &CanvasRenderingContext2d) {
+        context.begin_path();
+        let cell_size:f64 = 5.0;
+        context
+            .set_fill_style(&"rgb(240, 10, 10)".into());
+        for d in self.dots.iter() {
+            context.fill_rect(d.x as f64, d.y  as f64, cell_size, cell_size);
+        }
+        context.stroke()
     }
 }
